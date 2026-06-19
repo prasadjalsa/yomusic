@@ -105,7 +105,8 @@ export default function DashboardPage() {
     setSelected(new Set());
     setSuccessUrl(null);
     setSuccessMsg(null);
-    search(filters);
+    // Fetch extra songs to compensate for ones hidden by playlist dedup
+    search(filters, excludedVideoIds.size);
   }
 
   function toggleVideo(videoId: string) {

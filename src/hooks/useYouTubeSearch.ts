@@ -19,14 +19,18 @@ export function useYouTubeSearch() {
     quotaUsed: 0,
   });
 
-  const search = useCallback(async (filters: SearchFilters) => {
+  const search = useCallback(async (filters: SearchFilters, excludedCount = 0) => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
+      // Fetch extra songs to cover those that will be hidden by playlist dedup
+      const boostedCount = Math.min(filters.count + excludedCount, 50) as typeof filters.count;
+      const boostedFilters = excludedCount > 0 ? { ...filters, count: boostedCount } : filters;
+
       const res = await fetch("/api/youtube/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filters, count: filters.count }),
+        body: JSON.stringify({ filters: boostedFilters, count: boostedFilters.count }),
       });
 
       if (res.status === 401) {
