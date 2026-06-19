@@ -2,10 +2,14 @@ export type Language = "Tamil" | "Hindi" | "Telugu" | "Kannada" | "Malayalam";
 
 export type SongCount = 5 | 10 | 15 | 20 | 25 | 50;
 
+export type FilterMode = "AND" | "OR";
+
 export interface SearchFilters {
   language: Language | null;
-  musicDirector: string;
-  singer: string;
+  musicDirectors: string[];
+  singers: string[];
+  directorMode: FilterMode;
+  singerMode: FilterMode;
   movieName: string;
   yearFrom: number | null;
   yearTo: number | null;
@@ -14,8 +18,10 @@ export interface SearchFilters {
 
 export const DEFAULT_FILTERS: SearchFilters = {
   language: "Tamil",
-  musicDirector: "",
-  singer: "",
+  musicDirectors: [],
+  singers: [],
+  directorMode: "AND",
+  singerMode: "AND",
   movieName: "",
   yearFrom: null,
   yearTo: null,
@@ -31,3 +37,5 @@ export const LANGUAGE_OPTIONS: Language[] = [
   "Kannada",
   "Malayalam",
 ];
+
+export const MAX_COMBINATIONS = 5;

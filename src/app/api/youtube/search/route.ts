@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { buildSearchParams, transformSearchResults } from "@/lib/youtube/search";
+import {
+  buildQueryCombinations,
+  buildSearchParams,
+  transformSearchResults,
+} from "@/lib/youtube/search";
 import { checkAndIncrementQuota } from "@/lib/youtube/quota";
 import type { SearchFilters } from "@/types/filters";
-import type { YouTubeSearchApiResponse } from "@/types/youtube";
-
-const QUOTA_PER_SEARCH = 100;
+import type { VideoResult, YouTubeSearchApiResponse } from "@/types/youtube";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -22,8 +26,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "filters required" }, { status: 400 });
   }
 
-  // Check quota before hitting YouTube
-  const { allowed, remaining } = await checkAndIncrementQuota(user.id, QUOTA_PER_SEARCH);
+  const queries = buildQueryCombinations(filters);
+  const quotaCost = queries.length * 100;
+  const cappedAt5 = queries.length === 5 &&
+    (filters.directorMode === "OR" || filters.singerMode === "OR");
+
+  const { allowed, remaining } = await checkAndIncrementQuota(user.id, quotaCost);
   if (!allowed) {
     return NextResponse.json(
       { error: "quota_exceeded", message: "Daily search limit reached. Try again tomorrow." },
@@ -31,39 +39,58 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const params = buildSearchParams(filters);
-  const url = new URL("https://www.googleapis.com/youtube/v3/search");
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  url.searchParams.set("key", process.env.YOUTUBE_API_KEY!);
+  const seen = new Set<string>();
+  const allVideos: VideoResult[] = [];
 
-  const ytRes = await fetch(url.toString());
+  for (const query of queries) {
+    if (!query.trim()) continue;
 
-  if (!ytRes.ok) {
-    const err = await ytRes.json().catch(() => ({}));
-    console.error("YouTube search error:", err);
-    return NextResponse.json(
-      { error: "youtube_error", message: err?.error?.message ?? "YouTube search failed" },
-      { status: 502 }
+    const params = buildSearchParams(
+      query,
+      filters.count,
+      filters.yearFrom,
+      filters.yearTo
     );
+
+    const url = new URL("https://www.googleapis.com/youtube/v3/search");
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    url.searchParams.set("key", process.env.YOUTUBE_API_KEY!);
+
+    const ytRes = await fetch(url.toString());
+
+    if (!ytRes.ok) {
+      const err = await ytRes.json().catch(() => ({}));
+      console.error("YouTube search error:", err);
+      continue;
+    }
+
+    const data: YouTubeSearchApiResponse = await ytRes.json();
+    const videos = transformSearchResults(data);
+
+    for (const v of videos) {
+      if (!seen.has(v.videoId)) {
+        seen.add(v.videoId);
+        allVideos.push(v);
+      }
+    }
   }
 
-  const data: YouTubeSearchApiResponse = await ytRes.json();
-  const videos = transformSearchResults(data);
+  const results = allVideos.slice(0, filters.count * queries.length);
 
-  // Log search to history
   await supabase.from("search_history").insert({
     user_id: user.id,
     filters,
-    query_string: params.q,
-    result_count: videos.length,
-    quota_used: QUOTA_PER_SEARCH,
+    query_string: queries.join(" | "),
+    result_count: results.length,
+    quota_used: quotaCost,
   });
 
   return NextResponse.json({
-    videos,
-    nextPageToken: data.nextPageToken ?? null,
-    totalResults: data.pageInfo.totalResults,
-    quotaUsed: QUOTA_PER_SEARCH,
+    videos: results,
+    totalResults: results.length,
+    quotaUsed: quotaCost,
     remainingQuota: remaining,
+    combinationsRun: queries.length,
+    cappedAt5,
   });
 }

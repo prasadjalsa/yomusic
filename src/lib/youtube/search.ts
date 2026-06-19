@@ -1,8 +1,5 @@
-import type { SearchFilters } from "@/types/filters";
-import type {
-  VideoResult,
-  YouTubeSearchApiResponse,
-} from "@/types/youtube";
+import type { SearchFilters, FilterMode } from "@/types/filters";
+import type { VideoResult, YouTubeSearchApiResponse } from "@/types/youtube";
 
 const LANG_TERMS: Record<string, string> = {
   Tamil: "Tamil song",
@@ -12,39 +9,70 @@ const LANG_TERMS: Record<string, string> = {
   Malayalam: "Malayalam song",
 };
 
-export function buildSearchQuery(filters: SearchFilters): string {
+function buildSingleQuery(
+  directors: string[],
+  singers: string[],
+  movieName: string,
+  language: string | null
+): string {
   const parts: string[] = [];
-  if (filters.movieName) parts.push(`"${filters.movieName}"`);
-  if (filters.singer) parts.push(filters.singer);
-  if (filters.musicDirector) parts.push(filters.musicDirector);
-  if (filters.language) {
-    parts.push(LANG_TERMS[filters.language] ?? filters.language);
-  }
+  if (movieName) parts.push(`"${movieName}"`);
+  directors.forEach((d) => parts.push(`"${d}"`));
+  singers.forEach((s) => parts.push(`"${s}"`));
+  if (language) parts.push(LANG_TERMS[language] ?? language);
   return parts.join(" ");
 }
 
+// Returns one query string per OR combination, capped at MAX_COMBINATIONS.
+export function buildQueryCombinations(filters: SearchFilters): string[] {
+  const directors =
+    filters.musicDirectors.length > 0 ? filters.musicDirectors : [null];
+  const singers =
+    filters.singers.length > 0 ? filters.singers : [null];
+
+  const dirGroups: Array<string[]> =
+    filters.directorMode === "OR"
+      ? directors.map((d) => (d ? [d] : []))
+      : [filters.musicDirectors];
+
+  const singerGroups: Array<string[]> =
+    filters.singerMode === "OR"
+      ? singers.map((s) => (s ? [s] : []))
+      : [filters.singers];
+
+  const combinations: string[] = [];
+
+  for (const dg of dirGroups) {
+    for (const sg of singerGroups) {
+      combinations.push(
+        buildSingleQuery(dg, sg, filters.movieName, filters.language)
+      );
+      if (combinations.length >= 5) return combinations;
+    }
+  }
+
+  return combinations.length > 0
+    ? combinations
+    : [buildSingleQuery([], [], filters.movieName, filters.language)];
+}
+
 export function buildSearchParams(
-  filters: SearchFilters,
+  query: string,
+  count: number,
+  yearFrom: number | null,
+  yearTo: number | null,
   pageToken?: string
 ): Record<string, string> {
   const params: Record<string, string> = {
     part: "snippet",
     type: "video",
-    videoCategoryId: "10", // Music category
-    maxResults: String(filters.count),
-    q: buildSearchQuery(filters),
+    videoCategoryId: "10",
+    maxResults: String(count),
+    q: query,
   };
-
-  if (filters.yearFrom) {
-    params.publishedAfter = `${filters.yearFrom}-01-01T00:00:00Z`;
-  }
-  if (filters.yearTo) {
-    params.publishedBefore = `${filters.yearTo}-12-31T23:59:59Z`;
-  }
-  if (pageToken) {
-    params.pageToken = pageToken;
-  }
-
+  if (yearFrom) params.publishedAfter = `${yearFrom}-01-01T00:00:00Z`;
+  if (yearTo) params.publishedBefore = `${yearTo}-12-31T23:59:59Z`;
+  if (pageToken) params.pageToken = pageToken;
   return params;
 }
 
