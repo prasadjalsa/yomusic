@@ -9,6 +9,13 @@ import { checkAndIncrementQuota } from "@/lib/youtube/quota";
 import type { SearchFilters } from "@/types/filters";
 import type { VideoResult, YouTubeSearchApiResponse } from "@/types/youtube";
 
+// Returns true if the video title/channel contains at least one of the given names.
+function titleMatchesAny(video: VideoResult, names: string[]): boolean {
+  if (names.length === 0) return true;
+  const haystack = (video.title + " " + video.channelTitle).toLowerCase();
+  return names.some((n) => haystack.includes(n.toLowerCase()));
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -28,7 +35,8 @@ export async function POST(request: NextRequest) {
 
   const queries = buildQueryCombinations(filters);
   const quotaCost = queries.length * 100;
-  const cappedAt5 = queries.length === 5 &&
+  const cappedAt5 =
+    queries.length === 5 &&
     (filters.directorMode === "OR" || filters.singerMode === "OR");
 
   const { allowed, remaining } = await checkAndIncrementQuota(user.id, quotaCost);
@@ -40,7 +48,11 @@ export async function POST(request: NextRequest) {
   }
 
   const seen = new Set<string>();
-  const allVideos: VideoResult[] = [];
+  const relevant: VideoResult[] = [];   // title matches searched names
+  const fallback: VideoResult[] = [];   // YouTube returned but name not in title
+
+  // All searched person names for title matching
+  const allNames = [...filters.musicDirectors, ...filters.singers];
 
   for (const query of queries) {
     if (!query.trim()) continue;
@@ -57,7 +69,6 @@ export async function POST(request: NextRequest) {
     url.searchParams.set("key", process.env.YOUTUBE_API_KEY!);
 
     const ytRes = await fetch(url.toString());
-
     if (!ytRes.ok) {
       const err = await ytRes.json().catch(() => ({}));
       console.error("YouTube search error:", err);
@@ -68,14 +79,20 @@ export async function POST(request: NextRequest) {
     const videos = transformSearchResults(data);
 
     for (const v of videos) {
-      if (!seen.has(v.videoId)) {
-        seen.add(v.videoId);
-        allVideos.push(v);
+      if (seen.has(v.videoId)) continue;
+      seen.add(v.videoId);
+
+      if (titleMatchesAny(v, allNames)) {
+        relevant.push(v);
+      } else {
+        fallback.push(v);
       }
     }
   }
 
-  const results = allVideos.slice(0, filters.count * queries.length);
+  // Prefer relevant results; fill remainder with fallback if needed
+  const combined = [...relevant, ...fallback];
+  const results = combined.slice(0, filters.count); // never exceed requested count
 
   await supabase.from("search_history").insert({
     user_id: user.id,
@@ -94,3 +111,4 @@ export async function POST(request: NextRequest) {
     cappedAt5,
   });
 }
+
