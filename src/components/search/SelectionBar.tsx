@@ -26,13 +26,22 @@ export default function SelectionBar({ selected, onClear, onPlaylistCreated }: S
     setError(null);
 
     try {
-      // provider_token is only available client-side — pass it in the header
+      // provider_token lives in the Supabase session in memory.
+      // If it's gone (page refresh after >1h), re-auth is needed.
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       const providerToken = session?.provider_token;
 
       if (!providerToken) {
-        window.location.href = "/auth";
+        // Force re-sign-in to get a fresh provider_token
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            scopes: "https://www.googleapis.com/auth/youtube",
+            redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+            queryParams: { access_type: "offline", prompt: "consent" },
+          },
+        });
         return;
       }
 

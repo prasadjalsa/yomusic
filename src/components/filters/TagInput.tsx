@@ -50,28 +50,29 @@ export default function TagInput({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium leading-none">{label}</label>
-        {tags.length >= 2 && (
-          <div className="flex items-center gap-0.5 rounded-md border overflow-hidden text-xs">
+        {tags.length >= 1 && (
+          <div className="flex items-center rounded-md border border-input overflow-hidden text-xs font-medium">
             <button
               type="button"
               onClick={() => onModeChange("AND")}
               className={cn(
-                "px-2 py-0.5 transition-colors",
+                "px-2.5 py-1 transition-colors",
                 mode === "AND"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent"
+                  ? "bg-primary text-white"
+                  : "bg-white text-muted-foreground hover:bg-gray-100"
               )}
             >
               AND
             </button>
+            <div className="w-px h-4 bg-border" />
             <button
               type="button"
               onClick={() => onModeChange("OR")}
               className={cn(
-                "px-2 py-0.5 transition-colors",
+                "px-2.5 py-1 transition-colors",
                 mode === "OR"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent"
+                  ? "bg-primary text-white"
+                  : "bg-white text-muted-foreground hover:bg-gray-100"
               )}
             >
               OR
