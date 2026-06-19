@@ -14,9 +14,10 @@ export function formatDate(iso: string): string {
 }
 
 export function youtubeVideoUrl(videoId: string): string {
-  return `https://www.youtube.com/watch?v=${videoId}`;
+  // Use music.youtube.com to avoid OS intercepting the link and opening the native app
+  return `https://music.youtube.com/watch?v=${videoId}`;
 }
 
 export function youtubePlaylistUrl(playlistId: string): string {
-  return `https://www.youtube.com/playlist?list=${playlistId}`;
+  return `https://music.youtube.com/playlist?list=${playlistId}`;
 }
