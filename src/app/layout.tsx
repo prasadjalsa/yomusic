@@ -7,6 +7,15 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Yomusicly — Indian Film Music Playlists",
   description: "Search Indian film music and create YouTube playlists by music director, singer, movie, and year.",
+  applicationName: "Yomusicly",
+  appleWebApp: {
+    capable: true,
+    title: "Yomusicly",
+    statusBarStyle: "default",
+  },
+  formatDetection: { telephone: false },
+  themeColor: "#7c3aed",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
