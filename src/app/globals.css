@@ -34,4 +34,8 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Ensure all Radix portals (dropdowns, popovers) have an opaque background */
+  [data-radix-popper-content-wrapper] {
+    --tw-bg-opacity: 1 !important;
+  }
 }
