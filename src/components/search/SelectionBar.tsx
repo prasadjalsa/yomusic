@@ -30,7 +30,7 @@ export default function SelectionBar({ selected, onClear, onPlaylistCreated }: S
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          description: `Playlist created by Yomusic with ${selected.length} songs.`,
+          description: `Playlist created by Yomusicly with ${selected.length} songs.`,
           videoIds: selected.map((v) => v.videoId),
           videoMeta: selected.map((v) => ({
             videoId: v.videoId,

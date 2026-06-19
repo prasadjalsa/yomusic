@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Yomusic — Indian Film Music Playlists",
+  title: "Yomusicly — Indian Film Music Playlists",
   description: "Search Indian film music and create YouTube playlists by music director, singer, movie, and year.",
 };
 

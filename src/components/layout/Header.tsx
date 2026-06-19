@@ -10,7 +10,7 @@ export default function Header() {
       <div className="container flex h-14 items-center justify-between px-4 mx-auto max-w-6xl">
         <Link href="/dashboard" className="flex items-center gap-2 font-bold text-lg">
           <Music2 className="h-5 w-5 text-primary" />
-          Yomusic
+          Yomusicly
         </Link>
         <nav className="flex items-center gap-4">
           <Link

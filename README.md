@@ -1,4 +1,4 @@
-# Yomusic
+# Yomusicly
 
 Search Indian film music by music director, singer, movie, or year — and create YouTube playlists saved directly to your YouTube channel.
 
@@ -138,7 +138,7 @@ Open [http://localhost:3000](http://localhost:3000).
 1. Push to GitHub
 2. Import the repo at [vercel.com](https://vercel.com)
 3. Add all environment variables from `.env.local` in Vercel project settings
-4. Set `NEXT_PUBLIC_APP_URL` to your Vercel deployment URL (e.g. `https://yomusic.vercel.app`)
+4. Set `NEXT_PUBLIC_APP_URL` to your Vercel deployment URL (e.g. `https://yomusicly.vercel.app`)
 5. Update the OAuth redirect URI in Google Cloud Console to include `https://your-vercel-url.vercel.app/auth/callback`
 6. Update the Supabase redirect URL in Authentication → URL Configuration → Redirect URLs
 
