@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Music2 } from "lucide-react";
 import UserMenu from "./UserMenu";
+import HelpDialog from "./HelpDialog";
 
 export default function Header() {
   return (
@@ -25,6 +26,7 @@ export default function Header() {
           >
             My Playlists
           </Link>
+          <HelpDialog />
           <UserMenu />
         </nav>
       </div>
