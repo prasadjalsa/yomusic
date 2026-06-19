@@ -35,7 +35,17 @@ export default function SelectionBar({ selected, onClear, onPlaylistCreated }: S
       console.debug("[SelectionBar] session:", !!session, "provider_token:", !!providerToken);
 
       if (!providerToken) {
-        // Force re-sign-in to get a fresh provider_token
+        // Save the pending playlist before redirecting so we can resume after re-auth
+        sessionStorage.setItem("pending_playlist", JSON.stringify({
+          title: title.trim(),
+          videoIds: selected.map((v) => v.videoId),
+          videoMeta: selected.map((v) => ({
+            videoId: v.videoId,
+            title: v.title,
+            channelTitle: v.channelTitle,
+            thumbnailUrl: v.thumbnailUrl,
+          })),
+        }));
         await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
