@@ -61,6 +61,7 @@ export default function SearchResults({
             video={video}
             checked={selected.has(video.videoId)}
             onToggle={() => onToggle(video.videoId)}
+            allVideos={visible}
           />
         ))}
       </div>

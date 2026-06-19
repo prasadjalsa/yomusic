@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import Script from "next/script";
+import { PlayerProvider } from "@/context/PlayerContext";
+import MiniPlayerWrapper from "@/components/player/MiniPlayerWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,7 +24,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {/* YouTube IFrame API — loaded lazily, global singleton */}
+        <Script src="https://www.youtube.com/iframe_api" strategy="lazyOnload" />
+        <PlayerProvider>
+          {children}
+          <MiniPlayerWrapper />
+        </PlayerProvider>
+      </body>
     </html>
   );
 }

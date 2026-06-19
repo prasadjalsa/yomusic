@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListMusic, X, PlusCircle } from "lucide-react";
 import type { VideoResult } from "@/types/youtube";
 import type { Playlist } from "@/types/playlist";
 import { createClient } from "@/lib/supabase/client";
+import { usePlayer } from "@/context/PlayerContext";
 
 interface SelectionBarProps {
   selected: VideoResult[];
@@ -26,6 +27,13 @@ export default function SelectionBar({
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { setSelectionCount } = usePlayer();
+
+  // Keep mini player informed of selection count so it lifts above this bar
+  useEffect(() => {
+    setSelectionCount(selected.length);
+    return () => setSelectionCount(0);
+  }, [selected.length, setSelectionCount]);
 
   if (selected.length === 0) return null;
 
