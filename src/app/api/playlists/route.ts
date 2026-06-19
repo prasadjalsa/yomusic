@@ -4,6 +4,15 @@ import { createYouTubePlaylist, insertVideosIntoPlaylist, YouTubeAuthError } fro
 import { checkAndIncrementQuota } from "@/lib/youtube/quota";
 import { youtubePlaylistUrl } from "@/lib/utils";
 
+const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+
+function validateVideoIds(ids: unknown): ids is string[] {
+  return Array.isArray(ids) &&
+    ids.length > 0 &&
+    ids.length <= 50 &&
+    ids.every((id) => typeof id === "string" && YOUTUBE_ID_RE.test(id));
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -12,22 +21,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // provider_token is not available server-side via cookies — client sends it in the header
   const providerToken = request.headers.get("x-provider-token");
   if (!providerToken) {
     return NextResponse.json({ error: "youtube_auth_expired" }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
   const { title, description, videoIds, videoMeta } = body as {
-    title: string;
-    description: string;
-    videoIds: string[];
+    title: unknown;
+    description: unknown;
+    videoIds: unknown;
     videoMeta?: Array<{ videoId: string; title: string; channelTitle: string; thumbnailUrl: string }>;
   };
 
-  if (!title || !Array.isArray(videoIds) || videoIds.length === 0) {
-    return NextResponse.json({ error: "title and videoIds required" }, { status: 400 });
+  if (typeof title !== "string" || title.trim().length === 0 || title.length > 200) {
+    return NextResponse.json({ error: "Title is required and must be under 200 characters" }, { status: 400 });
+  }
+  if (description !== undefined && (typeof description !== "string" || description.length > 5000)) {
+    return NextResponse.json({ error: "Description must be under 5000 characters" }, { status: 400 });
+  }
+  if (!validateVideoIds(videoIds)) {
+    return NextResponse.json({ error: "videoIds must be 1–50 valid YouTube video IDs" }, { status: 400 });
   }
 
   // Quota: 50 (create) + 50 * N (insertions)
@@ -41,7 +61,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const youtubeId = await createYouTubePlaylist(providerToken, title, description ?? "");
+    const youtubeId = await createYouTubePlaylist(providerToken, title.trim(), (description as string) ?? "");
     await insertVideosIntoPlaylist(providerToken, youtubeId, videoIds);
 
     // Persist to Supabase
@@ -108,9 +128,8 @@ export async function POST(request: NextRequest) {
     if (err instanceof YouTubeAuthError) {
       return NextResponse.json({ error: "youtube_auth_expired", message: "YouTube session expired. Please sign in again." }, { status: 401 });
     }
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Playlist creation error:", message);
-    return NextResponse.json({ error: "playlist_failed", message }, { status: 500 });
+    console.error("Playlist creation error:", err);
+    return NextResponse.json({ error: "playlist_failed", message: "Failed to create playlist. Please try again." }, { status: 500 });
   }
 }
 

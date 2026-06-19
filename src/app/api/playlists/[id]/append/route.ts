@@ -3,11 +3,27 @@ import { createClient } from "@/lib/supabase/server";
 import { insertVideosIntoPlaylist, YouTubeAuthError } from "@/lib/youtube/playlist";
 import { checkAndIncrementQuota } from "@/lib/youtube/quota";
 
+const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateVideoIds(ids: unknown): ids is string[] {
+  return Array.isArray(ids) &&
+    ids.length > 0 &&
+    ids.length <= 50 &&
+    ids.every((id) => typeof id === "string" && YOUTUBE_ID_RE.test(id));
+}
+
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
+
+  // Validate playlist ID is a UUID
+  if (!UUID_RE.test(id)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -28,21 +44,28 @@ export async function POST(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
   const { videoIds, videoMeta } = body as {
-    videoIds: string[];
+    videoIds: unknown;
     videoMeta?: Array<{ videoId: string; title: string; channelTitle: string; thumbnailUrl: string }>;
   };
 
-  if (!Array.isArray(videoIds) || videoIds.length === 0) {
-    return NextResponse.json({ error: "videoIds required" }, { status: 400 });
+  if (!validateVideoIds(videoIds)) {
+    return NextResponse.json({ error: "videoIds must be 1–50 valid YouTube video IDs" }, { status: 400 });
   }
 
   // Load existing video IDs to deduplicate
   const { data: existing } = await supabase
     .from("playlist_items")
     .select("youtube_video_id")
-    .eq("playlist_id", id);
+    .eq("playlist_id", id)
+    .eq("user_id", user.id);
 
   const existingSet = new Set((existing ?? []).map((r) => r.youtube_video_id));
   const newVideoIds = videoIds.filter((v) => !existingSet.has(v));
@@ -51,7 +74,6 @@ export async function POST(
     return NextResponse.json({ error: "All selected songs are already in this playlist." }, { status: 400 });
   }
 
-  // Quota: 50 per insertion
   const quotaCost = newVideoIds.length * 50;
   const { allowed } = await checkAndIncrementQuota(user.id, quotaCost);
   if (!allowed) {
@@ -61,7 +83,6 @@ export async function POST(
   try {
     await insertVideosIntoPlaylist(providerToken, playlist.youtube_id, newVideoIds);
 
-    // Persist new items
     const startPosition = playlist.video_count;
     const metaMap = new Map((videoMeta ?? []).map((m) => [m.videoId, m]));
 
@@ -80,7 +101,6 @@ export async function POST(
       })
     );
 
-    // Update video_count
     await supabase
       .from("playlists")
       .update({ video_count: playlist.video_count + newVideoIds.length })
@@ -95,7 +115,7 @@ export async function POST(
     if (err instanceof YouTubeAuthError) {
       return NextResponse.json({ error: "youtube_auth_expired", message: "YouTube session expired. Please sign in again." }, { status: 401 });
     }
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: "append_failed", message }, { status: 500 });
+    console.error("Append error:", err);
+    return NextResponse.json({ error: "append_failed", message: "Failed to add songs. Please try again." }, { status: 500 });
   }
 }

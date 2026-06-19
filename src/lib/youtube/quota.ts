@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 
 function getDailyBudget(): number {
-  // Read at call time so Vercel env var changes take effect after redeploy
   return parseInt(process.env.DAILY_QUOTA_PER_USER ?? "10000", 10);
 }
 
@@ -27,19 +26,30 @@ export async function checkAndIncrementQuota(
   const today = new Date().toISOString().slice(0, 10);
   const budget = getDailyBudget();
 
-  const used = await getTodayUsage(userId);
-  const remaining = Math.max(0, budget - used);
-
-  if (unitsToConsume > remaining) {
-    return { allowed: false, remaining };
-  }
-
-  // Use raw SQL increment to avoid race conditions between concurrent requests
-  await supabase.rpc("increment_quota_usage", {
+  // Atomic check-and-increment — single DB round trip, no race condition
+  const { data, error } = await supabase.rpc("check_and_increment_quota", {
     p_user_id: userId,
     p_date: today,
     p_units: unitsToConsume,
+    p_budget: budget,
   });
 
-  return { allowed: true, remaining: remaining - unitsToConsume };
+  if (error) {
+    // RPC not available — fall back to non-atomic increment
+    console.error("check_and_increment_quota RPC error:", error.message);
+    const used = await getTodayUsage(userId);
+    const remaining = Math.max(0, budget - used);
+    if (unitsToConsume > remaining) return { allowed: false, remaining };
+
+    await supabase.from("quota_usage").upsert(
+      { user_id: userId, date: today, units_consumed: used + unitsToConsume },
+      { onConflict: "user_id,date" }
+    );
+    return { allowed: true, remaining: remaining - unitsToConsume };
+  }
+
+  return {
+    allowed: data.allowed as boolean,
+    remaining: data.remaining as number,
+  };
 }
