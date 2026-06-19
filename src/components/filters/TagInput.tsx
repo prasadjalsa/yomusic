@@ -46,55 +46,64 @@ export default function TagInput({
     }
   }
 
+  const active = tags.length >= 2;
+
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
+      {/* Label row — always full width on mobile */}
+      <div className="flex items-center justify-between gap-2 min-h-[28px]">
         <label className="text-sm font-medium leading-none">{label}</label>
-        {tags.length >= 1 && (
-          <div className="flex items-center rounded-md border border-input overflow-hidden text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => onModeChange("AND")}
-              className={cn(
-                "px-2.5 py-1 transition-colors",
-                mode === "AND"
-                  ? "bg-primary text-white"
-                  : "bg-white text-muted-foreground hover:bg-gray-100"
-              )}
-            >
-              AND
-            </button>
-            <div className="w-px h-4 bg-border" />
-            <button
-              type="button"
-              onClick={() => onModeChange("OR")}
-              className={cn(
-                "px-2.5 py-1 transition-colors",
-                mode === "OR"
-                  ? "bg-primary text-white"
-                  : "bg-white text-muted-foreground hover:bg-gray-100"
-              )}
-            >
-              OR
-            </button>
-          </div>
-        )}
+
+        {/* AND/OR toggle — always rendered, dimmed when < 2 tags */}
+        <div
+          className={cn(
+            "flex items-center rounded-md border border-input overflow-hidden text-xs font-medium shrink-0 transition-opacity",
+            !active && "opacity-35 pointer-events-none"
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => onModeChange("AND")}
+            className={cn(
+              "px-3 py-1 transition-colors",
+              mode === "AND"
+                ? "bg-primary text-white"
+                : "bg-white text-muted-foreground hover:bg-gray-100"
+            )}
+          >
+            AND
+          </button>
+          <div className="w-px h-4 bg-border" />
+          <button
+            type="button"
+            onClick={() => onModeChange("OR")}
+            className={cn(
+              "px-3 py-1 transition-colors",
+              mode === "OR"
+                ? "bg-primary text-white"
+                : "bg-white text-muted-foreground hover:bg-gray-100"
+            )}
+          >
+            OR
+          </button>
+        </div>
       </div>
 
+      {/* Tag + input area */}
       <div
-        className="flex flex-wrap gap-1.5 min-h-9 w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-sm cursor-text"
+        className="flex flex-wrap gap-1.5 min-h-[40px] w-full rounded-md border border-input bg-white px-2 py-1.5 text-sm cursor-text focus-within:ring-1 focus-within:ring-ring"
         onClick={() => inputRef.current?.focus()}
       >
         {tags.map((tag, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 shrink-0"
+            className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2.5 py-1 shrink-0"
           >
             {tag}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); removeTag(i); }}
-              className="hover:text-primary/60"
+              className="hover:text-primary/60 ml-0.5"
             >
               <X className="h-3 w-3" />
             </button>
@@ -107,10 +116,10 @@ export default function TagInput({
           onKeyDown={handleKeyDown}
           onBlur={() => { if (input.trim()) addTag(input); }}
           placeholder={tags.length === 0 ? placeholder : "Add more…"}
-          className="flex-1 min-w-[120px] bg-transparent outline-none placeholder:text-muted-foreground text-sm"
+          className="flex-1 min-w-[100px] bg-transparent outline-none placeholder:text-muted-foreground text-sm py-0.5"
         />
       </div>
-      <p className="text-xs text-muted-foreground">Press Enter or , to add</p>
+      <p className="text-xs text-muted-foreground">Press Enter or , to add · AND/OR activates with 2+ names</p>
     </div>
   );
 }

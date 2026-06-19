@@ -65,17 +65,17 @@ export default function FilterForm({ onSearch, loading }: FilterFormProps) {
   ].filter(Boolean) as Array<{ label: string; onRemove: () => void }>;
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Language */}
+    <div className="space-y-4">
+      {/* Language + Song Count — side by side even on mobile */}
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="language">Language</Label>
           <Select
             value={filters.language ?? ""}
             onValueChange={(v) => update("language", v as typeof filters.language)}
           >
-            <SelectTrigger id="language">
-              <SelectValue placeholder="Any language" />
+            <SelectTrigger id="language" className="bg-white">
+              <SelectValue placeholder="Any" />
             </SelectTrigger>
             <SelectContent>
               {LANGUAGE_OPTIONS.map((l) => (
@@ -85,73 +85,60 @@ export default function FilterForm({ onSearch, loading }: FilterFormProps) {
           </Select>
         </div>
 
-        {/* Song Count */}
         <div className="space-y-1.5">
-          <Label htmlFor="count">Songs to Fetch</Label>
+          <Label htmlFor="count">Songs</Label>
           <Select
             value={String(filters.count)}
             onValueChange={(v) => update("count", parseInt(v) as SongCount)}
           >
-            <SelectTrigger id="count">
+            <SelectTrigger id="count" className="bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {SONG_COUNT_OPTIONS.map((n) => (
-                <SelectItem key={n} value={String(n)}>{n} songs</SelectItem>
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+      </div>
 
-        {/* Music Directors — full width */}
-        <div className="sm:col-span-2">
-          <TagInput
-            label="Music Director(s)"
-            placeholder="e.g. G V Prakash — press Enter to add"
-            tags={filters.musicDirectors}
-            mode={filters.directorMode}
-            onTagsChange={(tags) => update("musicDirectors", tags)}
-            onModeChange={(mode) => update("directorMode", mode as FilterMode)}
-          />
-        </div>
+      {/* Tag inputs — full width, stacked */}
+      <TagInput
+        label="Music Director(s)"
+        placeholder="e.g. G V Prakash"
+        tags={filters.musicDirectors}
+        mode={filters.directorMode}
+        onTagsChange={(tags) => update("musicDirectors", tags)}
+        onModeChange={(mode) => update("directorMode", mode as FilterMode)}
+      />
+      <TagInput
+        label="Singer(s)"
+        placeholder="e.g. Chitra"
+        tags={filters.singers}
+        mode={filters.singerMode}
+        onTagsChange={(tags) => update("singers", tags)}
+        onModeChange={(mode) => update("singerMode", mode as FilterMode)}
+      />
+      <TagInput
+        label="Lyricist(s)"
+        placeholder="e.g. Vairamuthu"
+        tags={filters.lyricists}
+        mode={filters.lyricistMode}
+        onTagsChange={(tags) => update("lyricists", tags)}
+        onModeChange={(mode) => update("lyricistMode", mode as FilterMode)}
+      />
+      <TagInput
+        label="Starring"
+        placeholder="e.g. Rajinikanth"
+        tags={filters.starring}
+        mode={filters.starringMode}
+        onTagsChange={(tags) => update("starring", tags)}
+        onModeChange={(mode) => update("starringMode", mode as FilterMode)}
+      />
 
-        {/* Singers — full width */}
-        <div className="sm:col-span-2">
-          <TagInput
-            label="Singer(s)"
-            placeholder="e.g. Chitra — press Enter to add"
-            tags={filters.singers}
-            mode={filters.singerMode}
-            onTagsChange={(tags) => update("singers", tags)}
-            onModeChange={(mode) => update("singerMode", mode as FilterMode)}
-          />
-        </div>
-
-        {/* Lyricists — full width */}
-        <div className="sm:col-span-2">
-          <TagInput
-            label="Lyricist(s)"
-            placeholder="e.g. Vairamuthu — press Enter to add"
-            tags={filters.lyricists}
-            mode={filters.lyricistMode}
-            onTagsChange={(tags) => update("lyricists", tags)}
-            onModeChange={(mode) => update("lyricistMode", mode as FilterMode)}
-          />
-        </div>
-
-        {/* Starring — full width */}
-        <div className="sm:col-span-2">
-          <TagInput
-            label="Starring"
-            placeholder="e.g. Rajinikanth — press Enter to add"
-            tags={filters.starring}
-            mode={filters.starringMode}
-            onTagsChange={(tags) => update("starring", tags)}
-            onModeChange={(mode) => update("starringMode", mode as FilterMode)}
-          />
-        </div>
-
-        {/* Movie Name */}
+      {/* Movie + Year — side by side on sm+, stacked on mobile */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="movieName">Movie Name</Label>
           <Input
@@ -161,8 +148,6 @@ export default function FilterForm({ onSearch, loading }: FilterFormProps) {
             onChange={(e) => update("movieName", e.target.value)}
           />
         </div>
-
-        {/* Year Range */}
         <div className="space-y-1.5">
           <Label>Year Range</Label>
           <div className="flex gap-2">
@@ -197,31 +182,34 @@ export default function FilterForm({ onSearch, loading }: FilterFormProps) {
 
       {/* Combinations info */}
       {combinations.length > 1 && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+        <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
           {isCapped ? (
             <>
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              <span>Capped at 5 search combinations ({combinations.length * 100} quota units). Reduce OR filters to see more.</span>
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <span>Capped at 5 combinations ({combinations.length * 100} quota units). Reduce OR filters.</span>
             </>
           ) : (
-            <span>{combinations.length} search combinations will run ({combinations.length * 100} quota units).</span>
+            <span>{combinations.length} search combinations ({combinations.length * 100} quota units).</span>
           )}
         </div>
       )}
 
+      {/* Action buttons */}
       <div className="flex gap-3">
         <Button
           onClick={() => onSearch(filters)}
           disabled={loading || !hasFilters}
-          className="flex-1 sm:flex-none"
+          className="flex-1"
         >
           <Search className="h-4 w-4 mr-2" />
           {loading ? "Searching…" : "Search Songs"}
         </Button>
         <Button
           variant="outline"
+          size="icon"
           onClick={() => setFilters(DEFAULT_FILTERS)}
           disabled={loading}
+          title="Reset filters"
         >
           <RotateCcw className="h-4 w-4" />
         </Button>
