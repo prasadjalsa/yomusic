@@ -106,10 +106,11 @@ export async function POST(request: NextRequest) {
 
   } catch (err) {
     if (err instanceof YouTubeAuthError) {
-      return NextResponse.json({ error: "youtube_auth_expired" }, { status: 401 });
+      return NextResponse.json({ error: "youtube_auth_expired", message: "YouTube session expired. Please sign in again." }, { status: 401 });
     }
-    console.error("Playlist creation error:", err);
-    return NextResponse.json({ error: "Failed to create playlist" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Playlist creation error:", message);
+    return NextResponse.json({ error: "playlist_failed", message }, { status: 500 });
   }
 }
 

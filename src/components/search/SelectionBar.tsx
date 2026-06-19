@@ -32,6 +32,8 @@ export default function SelectionBar({ selected, onClear, onPlaylistCreated }: S
       const { data: { session } } = await supabase.auth.getSession();
       const providerToken = session?.provider_token;
 
+      console.debug("[SelectionBar] session:", !!session, "provider_token:", !!providerToken);
+
       if (!providerToken) {
         // Force re-sign-in to get a fresh provider_token
         await supabase.auth.signInWithOAuth({
@@ -74,7 +76,8 @@ export default function SelectionBar({ selected, onClear, onPlaylistCreated }: S
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to create playlist");
+        const msg = data.message || data.error || `Server error (${res.status})`;
+        throw new Error(msg);
       }
 
       const data = await res.json();
