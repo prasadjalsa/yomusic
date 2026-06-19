@@ -6,13 +6,14 @@ import { youtubePlaylistUrl } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const providerToken = session.provider_token;
+  // provider_token is not available server-side via cookies — client sends it in the header
+  const providerToken = request.headers.get("x-provider-token");
   if (!providerToken) {
     return NextResponse.json({ error: "youtube_auth_expired" }, { status: 401 });
   }
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   // Quota: 50 (create) + 50 * N (insertions)
   const quotaCost = 50 + videoIds.length * 50;
-  const { allowed } = await checkAndIncrementQuota(session.user.id, quotaCost);
+  const { allowed } = await checkAndIncrementQuota(user.id, quotaCost);
   if (!allowed) {
     return NextResponse.json(
       { error: "quota_exceeded", message: "Daily quota limit reached." },
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     const { data: playlist, error: dbError } = await supabase
       .from("playlists")
       .insert({
-        user_id: session.user.id,
+        user_id: user.id,
         youtube_id: youtubeId,
         title,
         description: description ?? null,
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
           const meta = metaMap.get(vid);
           return {
             playlist_id: playlist.id,
-            user_id: session.user.id,
+            user_id: user.id,
             youtube_video_id: vid,
             title: meta?.title ?? vid,
             channel_title: meta?.channelTitle ?? null,
