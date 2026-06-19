@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 
-const DAILY_BUDGET = parseInt(
-  process.env.DAILY_QUOTA_PER_USER ?? "2000",
-  10
-);
+function getDailyBudget(): number {
+  // Read at call time so Vercel env var changes take effect after redeploy
+  return parseInt(process.env.DAILY_QUOTA_PER_USER ?? "10000", 10);
+}
 
 export async function getTodayUsage(userId: string): Promise<number> {
   const supabase = await createClient();
@@ -23,24 +23,23 @@ export async function checkAndIncrementQuota(
   userId: string,
   unitsToConsume: number
 ): Promise<{ allowed: boolean; remaining: number }> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const budget = getDailyBudget();
+
   const used = await getTodayUsage(userId);
-  const remaining = Math.max(0, DAILY_BUDGET - used);
+  const remaining = Math.max(0, budget - used);
 
   if (unitsToConsume > remaining) {
     return { allowed: false, remaining };
   }
 
-  const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
-
-  await supabase.from("quota_usage").upsert(
-    {
-      user_id: userId,
-      date: today,
-      units_consumed: used + unitsToConsume,
-    },
-    { onConflict: "user_id,date" }
-  );
+  // Use raw SQL increment to avoid race conditions between concurrent requests
+  await supabase.rpc("increment_quota_usage", {
+    p_user_id: userId,
+    p_date: today,
+    p_units: unitsToConsume,
+  });
 
   return { allowed: true, remaining: remaining - unitsToConsume };
 }
