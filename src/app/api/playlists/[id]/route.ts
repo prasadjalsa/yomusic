@@ -4,8 +4,9 @@ import { youtubePlaylistUrl, youtubeVideoUrl } from "@/lib/utils";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -16,7 +17,7 @@ export async function GET(
   const { data: playlist, error: plError } = await supabase
     .from("playlists")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("user_id", user.id)
     .single();
 
@@ -27,7 +28,7 @@ export async function GET(
   const { data: items } = await supabase
     .from("playlist_items")
     .select("*")
-    .eq("playlist_id", params.id)
+    .eq("playlist_id", id)
     .order("position", { ascending: true });
 
   return NextResponse.json({
@@ -53,8 +54,9 @@ export async function GET(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -65,7 +67,7 @@ export async function DELETE(
   const { error } = await supabase
     .from("playlists")
     .delete()
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("user_id", user.id);
 
   if (error) {

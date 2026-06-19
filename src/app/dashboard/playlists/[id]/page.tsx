@@ -8,18 +8,20 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { PlaylistDetail } from "@/types/playlist";
+import { use } from "react";
 
-export default function PlaylistDetailPage({ params }: { params: { id: string } }) {
+export default function PlaylistDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const { fetchPlaylist } = usePlaylists();
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPlaylist(params.id).then((data) => {
+    fetchPlaylist(id).then((data) => {
       setPlaylist(data);
       setLoading(false);
     });
-  }, [fetchPlaylist, params.id]);
+  }, [fetchPlaylist, id]);
 
   if (loading) {
     return (

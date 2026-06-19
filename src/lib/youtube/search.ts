@@ -2,7 +2,6 @@ import type { SearchFilters } from "@/types/filters";
 import type {
   VideoResult,
   YouTubeSearchApiResponse,
-  YouTubeAuthError,
 } from "@/types/youtube";
 
 const LANG_TERMS: Record<string, string> = {
