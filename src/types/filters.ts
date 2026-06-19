@@ -7,9 +7,13 @@ export type FilterMode = "AND" | "OR";
 export interface SearchFilters {
   language: Language | null;
   musicDirectors: string[];
-  singers: string[];
   directorMode: FilterMode;
+  singers: string[];
   singerMode: FilterMode;
+  lyricists: string[];
+  lyricistMode: FilterMode;
+  starring: string[];
+  starringMode: FilterMode;
   movieName: string;
   yearFrom: number | null;
   yearTo: number | null;
@@ -19,9 +23,13 @@ export interface SearchFilters {
 export const DEFAULT_FILTERS: SearchFilters = {
   language: "Tamil",
   musicDirectors: [],
-  singers: [],
   directorMode: "AND",
+  singers: [],
   singerMode: "AND",
+  lyricists: [],
+  lyricistMode: "AND",
+  starring: [],
+  starringMode: "AND",
   movieName: "",
   yearFrom: null,
   yearTo: null,

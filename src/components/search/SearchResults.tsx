@@ -9,6 +9,7 @@ interface SearchResultsProps {
   loading: boolean;
   error: string | null;
   selected: Set<string>;
+  excludedVideoIds: Set<string>;
   onToggle: (videoId: string) => void;
 }
 
@@ -17,6 +18,7 @@ export default function SearchResults({
   loading,
   error,
   selected,
+  excludedVideoIds,
   onToggle,
 }: SearchResultsProps) {
   if (loading) {
@@ -37,17 +39,23 @@ export default function SearchResults({
     );
   }
 
-  if (videos.length === 0) {
-    return null;
-  }
+  const visible = videos.filter((v) => !excludedVideoIds.has(v.videoId));
+  const hiddenCount = videos.length - visible.length;
+
+  if (videos.length === 0) return null;
 
   return (
     <div>
       <p className="text-sm text-muted-foreground mb-3">
-        {videos.length} song{videos.length !== 1 ? "s" : ""} found
+        {visible.length} song{visible.length !== 1 ? "s" : ""} found
+        {hiddenCount > 0 && (
+          <span className="ml-1 text-xs text-amber-600">
+            ({hiddenCount} already in playlist — hidden)
+          </span>
+        )}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {videos.map((video) => (
+        {visible.map((video) => (
           <SongCard
             key={video.videoId}
             video={video}

@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import FilterForm from "@/components/filters/FilterForm";
 import SearchResults from "@/components/search/SearchResults";
 import SelectionBar from "@/components/search/SelectionBar";
 import QuotaWarning from "@/components/search/QuotaWarning";
+import PlaylistSelector from "@/components/playlists/PlaylistSelector";
 import { useYouTubeSearch } from "@/hooks/useYouTubeSearch";
+import { usePlaylistDedup } from "@/hooks/usePlaylistDedup";
 import type { SearchFilters } from "@/types/filters";
+import type { Playlist } from "@/types/playlist";
 import type { VideoResult } from "@/types/youtube";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ListChecks, Loader2 } from "lucide-react";
@@ -16,12 +19,15 @@ import { youtubePlaylistUrl } from "@/lib/utils";
 export default function DashboardPage() {
   const { videos, loading, error, search } = useYouTubeSearch();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [pendingVideos, setPendingVideos] = useState<VideoResult[]>([]);
+  const [targetPlaylist, setTargetPlaylist] = useState<Playlist | null>(null);
   const [lastFilters, setLastFilters] = useState<SearchFilters | null>(null);
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const didResume = useRef(false);
+
+  const excludedVideoIds = usePlaylistDedup(targetPlaylist?.id ?? null);
 
   // On mount: check for a pending playlist saved before re-auth redirect
   useEffect(() => {
@@ -33,12 +39,13 @@ export default function DashboardPage() {
     sessionStorage.removeItem("pending_playlist");
 
     const pending = JSON.parse(raw) as {
-      title: string;
+      title: string | null;
+      targetPlaylistId: string | null;
       videoIds: string[];
       videoMeta: Array<{ videoId: string; title: string; channelTitle: string; thumbnailUrl: string }>;
     };
 
-    if (!pending.title || !pending.videoIds?.length) return;
+    if (!pending.videoIds?.length) return;
 
     setResuming(true);
     setResumeError(null);
@@ -50,34 +57,41 @@ export default function DashboardPage() {
         const providerToken = session?.provider_token;
 
         if (!providerToken) {
-          setResumeError("YouTube sign-in required. Please try creating the playlist again.");
+          setResumeError("YouTube sign-in required. Please try again.");
           setResuming(false);
           return;
         }
 
-        const res = await fetch("/api/playlists", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-provider-token": providerToken,
-          },
-          body: JSON.stringify({
-            title: pending.title,
-            description: `Playlist created by Yomusicly with ${pending.videoIds.length} songs.`,
-            videoIds: pending.videoIds,
-            videoMeta: pending.videoMeta,
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.message || data.error || `Error ${res.status}`);
+        if (pending.targetPlaylistId) {
+          // Append to existing playlist
+          const res = await fetch(`/api/playlists/${pending.targetPlaylistId}/append`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-provider-token": providerToken },
+            body: JSON.stringify({ videoIds: pending.videoIds, videoMeta: pending.videoMeta }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || data.error || `Error ${res.status}`);
+          setSuccessMsg(`Added ${data.added} song${data.added !== 1 ? "s" : ""} to playlist.`);
+          setSuccessUrl(youtubePlaylistUrl(data.youtubeId ?? ""));
+        } else if (pending.title) {
+          // Create new playlist
+          const res = await fetch("/api/playlists", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-provider-token": providerToken },
+            body: JSON.stringify({
+              title: pending.title,
+              description: `Playlist created by Yomusicly with ${pending.videoIds.length} songs.`,
+              videoIds: pending.videoIds,
+              videoMeta: pending.videoMeta,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || data.error || `Error ${res.status}`);
+          setSuccessUrl(youtubePlaylistUrl(data.playlist.youtubeId));
+          setSuccessMsg("Playlist created!");
         }
-
-        setSuccessUrl(youtubePlaylistUrl(data.playlist.youtubeId));
       } catch (err) {
-        setResumeError(err instanceof Error ? err.message : "Failed to create playlist after sign-in.");
+        setResumeError(err instanceof Error ? err.message : "Failed after sign-in.");
       } finally {
         setResuming(false);
       }
@@ -90,6 +104,7 @@ export default function DashboardPage() {
     setLastFilters(filters);
     setSelected(new Set());
     setSuccessUrl(null);
+    setSuccessMsg(null);
     search(filters);
   }
 
@@ -103,16 +118,15 @@ export default function DashboardPage() {
   }
 
   const selectedVideos: VideoResult[] = videos.filter((v) =>
-    selected.has(v.videoId)
+    selected.has(v.videoId) && !excludedVideoIds.has(v.videoId)
   );
 
   return (
     <div className="space-y-6">
-      {/* Resume status after re-auth redirect */}
       {resuming && (
         <div className="rounded-xl border bg-muted/50 p-4 text-sm flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          Creating your playlist…
+          Finalising your playlist…
         </div>
       )}
       {resumeError && (
@@ -120,6 +134,20 @@ export default function DashboardPage() {
           {resumeError}
         </div>
       )}
+      {successMsg && successUrl && (
+        <div className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800 text-sm flex items-center gap-2">
+          {successMsg}{" "}
+          <a href={successUrl} target="_blank" rel="noopener noreferrer" className="underline font-medium">
+            Open on YouTube
+          </a>
+        </div>
+      )}
+
+      {/* Target playlist selector */}
+      <PlaylistSelector
+        selectedId={targetPlaylist?.id ?? null}
+        onChange={setTargetPlaylist}
+      />
 
       <Card>
         <CardHeader>
@@ -136,34 +164,27 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {successUrl && (
-        <div className="rounded-xl border border-green-300 bg-green-50 p-4 text-green-800 text-sm flex items-center gap-2">
-          Playlist created!{" "}
-          <a
-            href={successUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline font-medium"
-          >
-            Open on YouTube
-          </a>
-        </div>
-      )}
-
       <SearchResults
         videos={videos}
         loading={loading}
         error={error}
         selected={selected}
+        excludedVideoIds={excludedVideoIds}
         onToggle={toggleVideo}
       />
 
       <SelectionBar
         selected={selectedVideos}
+        targetPlaylist={targetPlaylist}
         onClear={() => setSelected(new Set())}
-        onPlaylistCreated={(ytId) =>
-          setSuccessUrl(`https://www.youtube.com/playlist?list=${ytId}`)
-        }
+        onPlaylistCreated={(ytId) => {
+          setSuccessMsg("Playlist created!");
+          setSuccessUrl(youtubePlaylistUrl(ytId));
+        }}
+        onPlaylistAppended={(ytId, added) => {
+          setSuccessMsg(`Added ${added} song${added !== 1 ? "s" : ""} to playlist.`);
+          setSuccessUrl(youtubePlaylistUrl(ytId));
+        }}
       />
     </div>
   );

@@ -12,6 +12,8 @@ const LANG_TERMS: Record<string, string> = {
 function buildSingleQuery(
   directors: string[],
   singers: string[],
+  lyricists: string[],
+  starring: string[],
   movieName: string,
   language: string | null
 ): string {
@@ -19,41 +21,52 @@ function buildSingleQuery(
   if (movieName) parts.push(`"${movieName}"`);
   directors.forEach((d) => parts.push(`"${d}"`));
   singers.forEach((s) => parts.push(`"${s}"`));
+  lyricists.forEach((l) => parts.push(`"${l}"`));
+  starring.forEach((a) => parts.push(`"${a}"`));
   if (language) parts.push(LANG_TERMS[language] ?? language);
   return parts.join(" ");
 }
 
-// Returns one query string per OR combination, capped at MAX_COMBINATIONS.
 export function buildQueryCombinations(filters: SearchFilters): string[] {
-  const directors =
-    filters.musicDirectors.length > 0 ? filters.musicDirectors : [null];
-  const singers =
-    filters.singers.length > 0 ? filters.singers : [null];
-
   const dirGroups: Array<string[]> =
-    filters.directorMode === "OR"
-      ? directors.map((d) => (d ? [d] : []))
+    filters.directorMode === "OR" && filters.musicDirectors.length > 0
+      ? filters.musicDirectors.map((d) => [d])
       : [filters.musicDirectors];
 
   const singerGroups: Array<string[]> =
-    filters.singerMode === "OR"
-      ? singers.map((s) => (s ? [s] : []))
+    filters.singerMode === "OR" && filters.singers.length > 0
+      ? filters.singers.map((s) => [s])
       : [filters.singers];
+
+  const lyricistGroups: Array<string[]> =
+    filters.lyricistMode === "OR" && filters.lyricists.length > 0
+      ? filters.lyricists.map((l) => [l])
+      : [filters.lyricists];
+
+  const starringGroups: Array<string[]> =
+    filters.starringMode === "OR" && filters.starring.length > 0
+      ? filters.starring.map((a) => [a])
+      : [filters.starring];
 
   const combinations: string[] = [];
 
+  outer:
   for (const dg of dirGroups) {
     for (const sg of singerGroups) {
-      combinations.push(
-        buildSingleQuery(dg, sg, filters.movieName, filters.language)
-      );
-      if (combinations.length >= 5) return combinations;
+      for (const lg of lyricistGroups) {
+        for (const ag of starringGroups) {
+          combinations.push(
+            buildSingleQuery(dg, sg, lg, ag, filters.movieName, filters.language)
+          );
+          if (combinations.length >= 5) break outer;
+        }
+      }
     }
   }
 
   return combinations.length > 0
     ? combinations
-    : [buildSingleQuery([], [], filters.movieName, filters.language)];
+    : [buildSingleQuery([], [], [], [], filters.movieName, filters.language)];
 }
 
 export function buildSearchParams(

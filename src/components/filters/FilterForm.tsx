@@ -44,6 +44,8 @@ export default function FilterForm({ onSearch, loading }: FilterFormProps) {
   const hasFilters =
     filters.musicDirectors.length > 0 ||
     filters.singers.length > 0 ||
+    filters.lyricists.length > 0 ||
+    filters.starring.length > 0 ||
     !!filters.movieName ||
     !!filters.language;
 
@@ -122,6 +124,30 @@ export default function FilterForm({ onSearch, loading }: FilterFormProps) {
             mode={filters.singerMode}
             onTagsChange={(tags) => update("singers", tags)}
             onModeChange={(mode) => update("singerMode", mode as FilterMode)}
+          />
+        </div>
+
+        {/* Lyricists — full width */}
+        <div className="sm:col-span-2">
+          <TagInput
+            label="Lyricist(s)"
+            placeholder="e.g. Vairamuthu — press Enter to add"
+            tags={filters.lyricists}
+            mode={filters.lyricistMode}
+            onTagsChange={(tags) => update("lyricists", tags)}
+            onModeChange={(mode) => update("lyricistMode", mode as FilterMode)}
+          />
+        </div>
+
+        {/* Starring — full width */}
+        <div className="sm:col-span-2">
+          <TagInput
+            label="Starring"
+            placeholder="e.g. Rajinikanth — press Enter to add"
+            tags={filters.starring}
+            mode={filters.starringMode}
+            onTagsChange={(tags) => update("starring", tags)}
+            onModeChange={(mode) => update("starringMode", mode as FilterMode)}
           />
         </div>
 
